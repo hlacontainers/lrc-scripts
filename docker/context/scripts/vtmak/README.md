@@ -1,0 +1,1 @@
+MaK configuration files for version: 4.6

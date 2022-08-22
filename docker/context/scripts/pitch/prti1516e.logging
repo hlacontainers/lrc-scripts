@@ -1,0 +1,9 @@
+traceRTIambassador=false
+traceFederateAmbassador=false
+traceToConsole=false
+traceToLogger=false
+traceToFile=false
+traceDirectory=${user.home}/prti1516e/trace
+dateFormat=HH\:mm\:ss
+filesToKeep=10
+maxFileSizeMB=100
