@@ -9,7 +9,7 @@ if [ -n "${LRC_DEBUG}" ]; then
 	echo "LRC: Update VTMaK LRC Settings ..."
 fi
 
-SplitAddress() {
+SplitMakAddress() {
 	#split address
 	#format: <HOST>:<PORT>
 	OLDIFS=$IFS
@@ -21,7 +21,7 @@ SplitAddress() {
 	IFS=$OLDIFS
 }
 
-GetNetworkInterface() {
+GetMakNetworkInterface() {
 	# host we want to "reach"
 	HOSTNAME=$1
 	
@@ -48,42 +48,43 @@ GetNetworkInterface() {
 	fi
 }
 
-initEnvironmentVars() {
-	# we are in this directory
+initMakSettings() {
+	# We are in this directory
 	MAK_SCRIPTS_HOME=$(dirname $0)/vtmak
-		
-	if [ -z "$MAK_RTI_RID_FILE"	]; then
-		MAK_RTI_RID_FILE=${MAK_SCRIPTS_HOME}/rid.mtl
-	else
-		if [ ! -f "$MAK_RTI_RID_FILE" ]; then
-			if [ -n "${LRC_DEBUG}" ]; then
-				echo "LRC: RID ${MAK_RTI_RID_FILE} does not exist, using default"
-			fi
-
-			MAK_RTI_RID_FILE=${MAK_SCRIPTS_HOME}/rid.mtl
-		fi
-	fi
 	
-	MAK_ALTERNATE_RTI_RID_FILE=$(pwd)/rid.mtl
-
-	# If there is no RID file in the PWD then copy this RID file
-	# to the PWD, where it can be picked up by the RTI.
-	if [ ! -f "${MAK_ALTERNATE_RTI_RID_FILE}" ] ; then
-		cp ${MAK_RTI_RID_FILE} ${MAK_ALTERNATE_RTI_RID_FILE}
-		
-		if [ -n "${LRC_DEBUG}" ]; then
-			echo "LRC: Copied RID ${MAK_RTI_RID_FILE} to workdir as ${MAK_ALTERNATE_RTI_RID_FILE}"
-		fi
-
-		MAK_RTI_RID_FILE=${MAK_ALTERNATE_RTI_RID_FILE}
+	# Find the RID, check:
+	# (1) ${MAK_RTI_RID_FILE}
+	# (2) ${MAK_SCRIPTS_HOME}/rid.mtl
+	
+	if [ -n "${MAK_RTI_RID_FILE}" ]; then
+		RID_FILE=${MAK_RTI_RID_FILE}
 	else
-		MAK_RTI_RID_FILE=""
-
-		if [ -n "${LRC_DEBUG}" ]; then
-			echo "LRC: Found and kept existing RID ${MAK_ALTERNATE_RTI_RID_FILE} in workdir"
-		fi
+		RID_FILE=${MAK_SCRIPTS_HOME}/rid.mtl
 	fi
 
+	if [ ! -f $RID_FILE ]; then
+		echo "LRC: ERROR - RID ${RID_FILE} does not exist"
+		return;
+	fi
+
+	if [ -n "${LRC_DEBUG}" ]; then
+		echo "LRC: Found RID ${RID_FILE}"
+	fi
+
+	if [ "$(realpath ${RID_FILE})" != "$(pwd)/rid.mtl" ]; then
+		if [ -n "${LRC_DEBUG}" ]; then
+			echo "LRC: Copy RID ${RID_FILE} to $(pwd)/rid.mtl"
+		fi
+		cp ${RID_FILE} $(pwd)/rid.mtl
+	fi
+
+	# Set the file to be used for updating the RID settings
+	RID_FILE=$(pwd)/rid.mtl
+
+	# Set the MAK config dir where the RTI will look for the RID in case the federate application (such as VRF) is in another directory
+	export RTI_CONFIG=$(pwd)
+	
+	# Disable the MAK RTI Assistent
 	export RTI_ASSISTANT_DISABLE=1
 }
 
@@ -100,11 +101,11 @@ X=${MAK_RTI_STRICT_NAME_RESERVATION:=1}
 X=${MAK_RTI_RTIEXEC_PERFORMS_LICENSING:=1}
 X=${MAK_RTI_USE_32BITS_FOR_VALUE_SIZE:=1}
 
-initEnvironmentVars
+initMakSettings
 
 # Change settings in config file
-if [ -n "$MAK_RTI_RID_FILE" ]; then
-	SplitAddress $MAK_RTIEXECADDRESS
+if [ -f "$RID_FILE" ]; then
+	SplitMakAddress $MAK_RTIEXECADDRESS
 
 	if [ -z "$MAK_RTIEXECHOST" ]; then
 		MAK_RTIEXECHOST="rtiexec"
@@ -117,19 +118,19 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 
 	if [ -z "$MAK_LRCADAPTER" ]; then
 		# Determine network interface to RTI Exec
-		GetNetworkInterface $MAK_RTIEXECHOST
+		GetMakNetworkInterface $MAK_RTIEXECHOST
 		MAK_LRCADAPTER=$NETIF
 	fi
 
-	sed -i "s/(setqb RTI_networkInterfaceAddr.*/(setqb RTI_networkInterfaceAddr \"$MAK_LRCADAPTER\")/" $MAK_RTI_RID_FILE
+	sed -i "s/(setqb RTI_networkInterfaceAddr.*/(setqb RTI_networkInterfaceAddr \"$MAK_LRCADAPTER\")/" $RID_FILE
 
-	sed -i "s/(setqb RTI_tcpNetworkInterfaceAddr.*/(setqb RTI_tcpNetworkInterfaceAddr \"$MAK_LRCADAPTER\")/" $MAK_RTI_RID_FILE
+	sed -i "s/(setqb RTI_tcpNetworkInterfaceAddr.*/(setqb RTI_tcpNetworkInterfaceAddr \"$MAK_LRCADAPTER\")/" $RID_FILE
 
-	sed -i "s/(setqb RTI_tcpForwarderAddr.*/(setqb RTI_tcpForwarderAddr \"$MAK_RTIEXECHOST\")/" $MAK_RTI_RID_FILE
+	sed -i "s/(setqb RTI_tcpForwarderAddr.*/(setqb RTI_tcpForwarderAddr \"$MAK_RTIEXECHOST\")/" $RID_FILE
 
-	sed -i "s/(setqb RTI_tcpPort.*/(setqb RTI_tcpPort $MAK_RTIEXECPORT)/" $MAK_RTI_RID_FILE
+	sed -i "s/(setqb RTI_tcpPort.*/(setqb RTI_tcpPort $MAK_RTIEXECPORT)/" $RID_FILE
 
-	sed -i "s/(setqb RTI_udpPort.*/(setqb RTI_udpPort $MAK_RTIEXECPORT)/" $MAK_RTI_RID_FILE
+	sed -i "s/(setqb RTI_udpPort.*/(setqb RTI_udpPort $MAK_RTIEXECPORT)/" $RID_FILE
 	
 	if [ -n "${LRC_DEBUG}" ]; then
 		echo "LRC: Set RTI_networkInterfaceAddr to ${MAK_LRCADAPTER}"
@@ -141,7 +142,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 
 	# Set the others
 	if [ -n "$MAK_RTI_CONFIGURE_CONNECTION_WITH_RID" ]; then
-		sed -i "s/(setqb RTI_configureConnectionWithRid.*/(setqb RTI_configureConnectionWithRid $MAK_RTI_CONFIGURE_CONNECTION_WITH_RID)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_configureConnectionWithRid.*/(setqb RTI_configureConnectionWithRid $MAK_RTI_CONFIGURE_CONNECTION_WITH_RID)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_configureConnectionWithRid to ${MAK_RTI_CONFIGURE_CONNECTION_WITH_RID}"
@@ -149,7 +150,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_USE_RTI_EXEC" ]; then
-		sed -i "s/(setqb RTI_useRtiExec.*/(setqb RTI_useRtiExec $MAK_RTI_USE_RTI_EXEC)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_useRtiExec.*/(setqb RTI_useRtiExec $MAK_RTI_USE_RTI_EXEC)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_useRtiExec to ${MAK_RTI_USE_RTI_EXEC}"
@@ -157,7 +158,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_FOM_DATA_TRANSPORT_TYPE_CONTROL" ]; then
-		sed -i "s/(setqb RTI_fomDataTransportTypeControl.*/(setqb RTI_fomDataTransportTypeControl $MAK_RTI_FOM_DATA_TRANSPORT_TYPE_CONTROL)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_fomDataTransportTypeControl.*/(setqb RTI_fomDataTransportTypeControl $MAK_RTI_FOM_DATA_TRANSPORT_TYPE_CONTROL)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_fomDataTransportTypeControl to ${MAK_RTI_FOM_DATA_TRANSPORT_TYPE_CONTROL}"
@@ -165,7 +166,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_MOM_SERVICE_AVAILABLE" ]; then
-		sed -i "s/(setqb RTI_momServiceAvailable.*/(setqb RTI_momServiceAvailable $MAK_RTI_MOM_SERVICE_AVAILABLE)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_momServiceAvailable.*/(setqb RTI_momServiceAvailable $MAK_RTI_MOM_SERVICE_AVAILABLE)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_momServiceAvailable to ${MAK_RTI_MOM_SERVICE_AVAILABLE}"
@@ -173,7 +174,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_THROW_EXCEPTION_CALL_NOT_ALLOWED_FROM_WITHIN_CALLBACK" ]; then
-		sed -i "s/(setqb RTI_throwExceptionCallNotAllowedFromWithinCallback.*/(setqb RTI_throwExceptionCallNotAllowedFromWithinCallback $MAK_RTI_THROW_EXCEPTION_CALL_NOT_ALLOWED_FROM_WITHIN_CALLBACK)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_throwExceptionCallNotAllowedFromWithinCallback.*/(setqb RTI_throwExceptionCallNotAllowedFromWithinCallback $MAK_RTI_THROW_EXCEPTION_CALL_NOT_ALLOWED_FROM_WITHIN_CALLBACK)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_throwExceptionCallNotAllowedFromWithinCallback to ${MAK_RTI_THROW_EXCEPTION_CALL_NOT_ALLOWED_FROM_WITHIN_CALLBACK}"
@@ -181,7 +182,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_CHECK_FLAG" ]; then
-		sed -i "s/(setqb RTI_checkFlag.*/(setqb RTI_checkFlag $MAK_RTI_CHECK_FLAG)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_checkFlag.*/(setqb RTI_checkFlag $MAK_RTI_CHECK_FLAG)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_checkFlag to ${MAK_RTI_CHECK_FLAG}"
@@ -189,7 +190,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_ENABLE_HLA_OBJECT_NAME_PREFIX" ]; then
-		sed -i "s/(setqb RTI_enableHlaObjectNamePrefix.*/(setqb RTI_enableHlaObjectNamePrefix $MAK_RTI_ENABLE_HLA_OBJECT_NAME_PREFIX)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_enableHlaObjectNamePrefix.*/(setqb RTI_enableHlaObjectNamePrefix $MAK_RTI_ENABLE_HLA_OBJECT_NAME_PREFIX)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_enableHlaObjectNamePrefix to ${MAK_RTI_ENABLE_HLA_OBJECT_NAME_PREFIX}"
@@ -197,7 +198,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_STRICT_FOM_CHECKING" ]; then
-		sed -i "s/(setqb RTI_strictFomChecking.*/(setqb RTI_strictFomChecking $MAK_RTI_STRICT_FOM_CHECKING)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_strictFomChecking.*/(setqb RTI_strictFomChecking $MAK_RTI_STRICT_FOM_CHECKING)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_strictFomChecking to ${MAK_RTI_STRICT_FOM_CHECKING}"
@@ -205,7 +206,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_STRICT_NAME_RESERVATION" ]; then
-		sed -i "s/(setqb RTI_strictNameReservation.*/(setqb RTI_strictNameReservation $MAK_RTI_STRICT_NAME_RESERVATION)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_strictNameReservation.*/(setqb RTI_strictNameReservation $MAK_RTI_STRICT_NAME_RESERVATION)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_strictNameReservation to ${MAK_RTI_STRICT_NAME_RESERVATION}"
@@ -213,7 +214,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_RTIEXEC_PERFORMS_LICENSING" ]; then
-		sed -i "s/(setqb RTI_rtiExecPerformsLicensing.*/(setqb RTI_rtiExecPerformsLicensing $MAK_RTI_RTIEXEC_PERFORMS_LICENSING)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_rtiExecPerformsLicensing.*/(setqb RTI_rtiExecPerformsLicensing $MAK_RTI_RTIEXEC_PERFORMS_LICENSING)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_rtiExecPerformsLicensing to ${MAK_RTI_RTIEXEC_PERFORMS_LICENSING}"
@@ -221,7 +222,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_USE_32BITS_FOR_VALUE_SIZE" ]; then
-		sed -i "s/(setqb RTI_use32BitsForValueSize.*/(setqb RTI_use32BitsForValueSize $MAK_RTI_USE_32BITS_FOR_VALUE_SIZE)/" $MAK_RTI_RID_FILE
+		sed -i "s/(setqb RTI_use32BitsForValueSize.*/(setqb RTI_use32BitsForValueSize $MAK_RTI_USE_32BITS_FOR_VALUE_SIZE)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_use32BitsForValueSize to ${MAK_RTI_USE_32BITS_FOR_VALUE_SIZE}"
@@ -229,7 +230,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_NOTIFY_LEVEL" ]; then
-		sed -i "s/.*(setqb RTI_notifyLevel.*/(setqb RTI_notifyLevel $MAK_RTI_NOTIFY_LEVEL)/" $MAK_RTI_RID_FILE
+		sed -i "s/.*(setqb RTI_notifyLevel.*/(setqb RTI_notifyLevel $MAK_RTI_NOTIFY_LEVEL)/" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_notifyLevel to ${MAK_RTI_NOTIFY_LEVEL}"
@@ -237,7 +238,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_LOG_FILE_DIRECTORY" ]; then
-		sed -i "s:.*(setqb RTI_logFileDirectory .*):(setqb RTI_logFileDirectory \"$MAK_RTI_LOG_FILE_DIRECTORY\"):" $MAK_RTI_RID_FILE
+		sed -i "s:.*(setqb RTI_logFileDirectory .*):(setqb RTI_logFileDirectory \"$MAK_RTI_LOG_FILE_DIRECTORY\"):" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_logFileDirectory to ${MAK_RTI_LOG_FILE_DIRECTORY}"
@@ -245,7 +246,7 @@ if [ -n "$MAK_RTI_RID_FILE" ]; then
 	fi
 
 	if [ -n "$MAK_RTI_RTIEXEC_LOG_FILE_NAME" ]; then
-		sed -i "s:.*(setqb RTI_rtiExecLogFileName.*):(setqb RTI_rtiExecLogFileName \"$MAK_RTI_RTIEXEC_LOG_FILE_NAME\"):" $MAK_RTI_RID_FILE
+		sed -i "s:.*(setqb RTI_rtiExecLogFileName.*):(setqb RTI_rtiExecLogFileName \"$MAK_RTI_RTIEXEC_LOG_FILE_NAME\"):" $RID_FILE
 
 		if [ -n "${LRC_DEBUG}" ]; then
 			echo "LRC: Set RTI_rtiExecLogFileName to ${MAK_RTI_RTIEXEC_LOG_FILE_NAME}"

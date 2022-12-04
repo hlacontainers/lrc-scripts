@@ -55,8 +55,9 @@ All environment variables are optional.
 | `LRC_ENTRYPOINT`     | Reference to the shell script to start the federate application. | First argument of the launch script, if provided |
 | `LRC_MASTERADDRESS`  | Master hostname and port number as `<hostname>:<port>`.      | No master address                                |
 | `LRC_SLEEPPERIOD`    | Sleep period in seconds before starting the federate application; format `<min>[:<max>]`. If a max is specified then a random value between min and max is used as actual sleep period. | No sleep period                                  |
-| `LRC_DEBUG`          | Print debug information. Set to a non-empty value to enable. | No debug                                         |
+| `LRC_DEBUG`          | If set, print debug information. Set to a non-empty value to enable. | No debug                                         |
 | `LRC_VERSION`        | If set, the version value is printed when starting the launch script. | Nothing printed                                  |
+| `LRC_RTINAME`        | If set, the launch script will be initialized for only this RTI. Valid names are `pitch`, `vtmak` and `portico`. | Initialize for all configured RTIs               |
 
 The reference to the start script to launch the federate application can be provided as first argument to the launch script, or can be provided via `LRC_ENTRYPOINT`. If neither is provided then the launch script does not launch anything and merely returns to hand back control to the caller. The caller may instead launch the application, from the application working directory.
 
@@ -70,7 +71,7 @@ All environment variables are optional.
 
 | Environment variable              | Description                                                  | Default if not specified                      |
 | --------------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| `PITCH_RTI_RID_FILE`              | File system path to Pitch RID file to use as template for creating the alternate RID file for the LRC. | `${SCRIPTS_HOME}/pitch/prti1516eLRC.settings` |
+| `PITCH_RTI_RID_FILE`              | File system path to alternate RID file.                      | `${SCRIPTS_HOME}/pitch/prti1516eLRC.settings` |
 | `PITCH_CRCADDRESS`                | CRC address in the format of `<host>:<port>` (direct mode) or `<crc-nickname>@<boost host>:<boost port>` (booster mode). | `crc:8989`                                    |
 | `PITCH_LRCADAPTER`                | Applies to direct mode. The network adapter that the LRC should use. | Use IP route to CRC to determine adapter      |
 | `PITCH_BOOSTADAPTER`              | Applies to booster mode. The network adapter that the LRC should use for the Booster network. | Use IP route to booster to determine adapter  |
@@ -93,7 +94,7 @@ All environment variables are optional.
 
 | Environment variable          | Description                                                  | Default if not specified          |
 | ----------------------------- | ------------------------------------------------------------ | --------------------------------- |
-| `PORTICO_RTI_RID_FILE`        | File system path to Portico RID file to use as template for creating the alternate RID file for the LRC. | `${SCRIPTS_HOME}/portico/RTI.rid` |
+| `PORTICO_RTI_RID_FILE`        | File system path to alternate RID file.                      | `${SCRIPTS_HOME}/portico/RTI.rid` |
 | `PORTICO_LRCADAPTER`          | The network adapter (network interface) that the LRC should use. The name must be an exact match. | RID file default                  |
 | `PORTICO_LOGLEVEL`            | Specify the level that Portico will log at. Valid values are: TRACE, DEBUG, INFO, WARN, ERROR, FATAL, OFF. | RID file default (WARN)           |
 | `PORTICO_UNIQUEFEDERATENAMES` | Ensure that all federates in a federation have unique names. When  false, Portico will change the requested name from "name" to "name  (handle)" thus making it Unique. Valid values are: true, false. | RID file default (true)           |
@@ -104,7 +105,7 @@ All environment variables are optional.
 
 | Environment variable            | Description                                                  | Default if not specified                                     |
 | ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `MAK_RTI_RID_FILE`              | File system path to VTMaK RID file to use as template for creating the alternate RID file for the LRC. | `${SCRIPTS_HOME}/vtmak/rid.mtl`                              |
+| `MAK_RTI_RID_FILE`              | File system path alternate RID file.                         | `${SCRIPTS_HOME}/vtmak/rid.mtl`                              |
 | `MAK_RTIEXECADDRESS`            | RTI Exec address in the format of `<host>:<port>`.           | `rtiexec:4000`                                               |
 | `MAK_LRCADAPTER`                | Network interface address to use for the TCP Forwarder       | `0.0.0.0`, i.e. first available non-localhost interface address |
 | `MAK_RTI_NOTIFY_LEVEL`          | Change the level of logging detail generated by the LRC. Values in  the range 0--4 are valid with 0 being no logging and 4 being the most  detailed | 2                                                            |

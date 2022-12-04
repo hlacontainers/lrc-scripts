@@ -103,14 +103,25 @@ if [ -n "$LRC_SLEEPPERIOD" ]; then
 	PerformSleep ${LRC_SLEEPPERIOD}
 fi
 
-# Set the working directory to where the entrypoint is located.
+# Set the entrypoint
+# If LRC_ENTRYPOINT is not set then use the command line argument
 if [ -z "$LRC_ENTRYPOINT" ]; then
 	if [ -n "$1" ]; then
 		LRC_ENTRYPOINT=$1
 		shift
+		if [ -n "${LRC_DEBUG}" ]; then
+			echo "LRC: Set LRC_ENTRYPOINT to: ${LRC_ENTRYPOINT}"
+		fi
+	else
+		echo "LRC: No entrypoint provided; consider setting ENV LRC_ENTRYPOINT or providing a commandline argument to the launch script"	
+	fi
+else
+	if [ -n "${LRC_DEBUG}" ]; then
+		echo "LRC: LRC_ENTRYPOINT is already set to: ${LRC_ENTRYPOINT}"
 	fi
 fi
 
+# Set the working directory to where the entrypoint is located.
 if [ -n "$LRC_ENTRYPOINT" ]; then
 	if [ -n "${LRC_DEBUG}" ]; then
 		echo "LRC: Set workdir to: $(dirname ${LRC_ENTRYPOINT})"
@@ -118,18 +129,28 @@ if [ -n "$LRC_ENTRYPOINT" ]; then
 	cd $(dirname ${LRC_ENTRYPOINT})
 else
 	if [ -n "${LRC_DEBUG}" ]; then
-		echo "LRC: No entrypoint set, workdir remains: $(pwd)"
+		echo "LRC: No entrypoint provided, workdir remains: $(pwd)"
 	fi
 fi
 
-# Perform initialization and copy RID file to workdir
-for name in $(ls $(dirname $0)/*/init.sh); do
-	if [ -n "${LRC_DEBUG}" ]; then
-		echo "LRC: Source $name"
+# Perform RTI specific initialization
+if [ -n "$LRC_RTINAME" ]; then
+	if [ ! -f $(dirname $0)/$LRC_RTINAME/init.sh ]; then
+		echo "LRC: ERROR - file $(dirname $0)/$LRC_RTINAME/init.sh does not exist"
+	else
+		if [ -n "${LRC_DEBUG}" ]; then
+			echo "LRC: Source $(dirname $0)/$LRC_RTINAME/init.sh"
+		fi
+. $(dirname $0)/$LRC_RTINAME/init.sh
 	fi
-
+else
+	for name in $(ls $(dirname $0)/*/init.sh); do
+		if [ -n "${LRC_DEBUG}" ]; then
+			echo "LRC: Source $name"
+		fi
 . $name
-done
+	done
+fi
 
 # Start the application, if any
 if [ -n "$LRC_ENTRYPOINT" ]; then
